@@ -9,8 +9,8 @@ class AssetView:
     symbol: str
     direction: str
     confidence: float
-    typical_abs_move_pct: float
-    volatility_pct: float | None = None
+    typical_abs_move: float
+    volatility: float | None = None
     max_leverage: float | None = None
     rationale: str = ""
 
@@ -20,10 +20,10 @@ class AssetView:
             symbol=str(data["symbol"]),
             direction=str(data["direction"]).lower(),
             confidence=float(data["confidence"]),
-            typical_abs_move_pct=float(data["typical_abs_move_pct"]),
-            volatility_pct=(
-                float(data["volatility_pct"])
-                if data.get("volatility_pct") is not None
+            typical_abs_move=float(data["typical_abs_move"]),
+            volatility=(
+                float(data["volatility"])
+                if data.get("volatility") is not None
                 else None
             ),
             max_leverage=(
@@ -40,8 +40,10 @@ class RiskProfile:
     risk_aversion: float = 3.0
     max_gross_leverage: float = 8.0
     max_asset_leverage: float = 5.0
-    max_one_day_loss_pct: float = 0.25
+    max_one_day_loss: float = 0.25
     confidence_shrinkage: float = 0.25
+    calibration_horizon_trades: float = 10.0
+    kelly_fraction: float | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "RiskProfile":
@@ -51,8 +53,16 @@ class RiskProfile:
             risk_aversion=float(data.get("risk_aversion", cls.risk_aversion)),
             max_gross_leverage=float(data.get("max_gross_leverage", cls.max_gross_leverage)),
             max_asset_leverage=float(data.get("max_asset_leverage", cls.max_asset_leverage)),
-            max_one_day_loss_pct=float(data.get("max_one_day_loss_pct", cls.max_one_day_loss_pct)),
+            max_one_day_loss=float(data.get("max_one_day_loss", cls.max_one_day_loss)),
             confidence_shrinkage=float(data.get("confidence_shrinkage", cls.confidence_shrinkage)),
+            calibration_horizon_trades=float(
+                data.get("calibration_horizon_trades", cls.calibration_horizon_trades)
+            ),
+            kelly_fraction=(
+                float(data["kelly_fraction"])
+                if data.get("kelly_fraction") is not None
+                else None
+            ),
         )
 
 

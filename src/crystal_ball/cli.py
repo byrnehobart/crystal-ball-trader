@@ -41,7 +41,7 @@ def cmd_record_outcome(args: argparse.Namespace) -> None:
     now = datetime.now(timezone.utc).isoformat()
     for item in outcome["assets"]:
         direction = str(item["direction"]).lower()
-        actual_return = float(item["actual_return_pct"])
+        actual_return = float(item["actual_return"])
         if direction in {"long", "buy", "up"}:
             correct = actual_return > 0
         elif direction in {"short", "sell", "down"}:
@@ -55,7 +55,7 @@ def cmd_record_outcome(args: argparse.Namespace) -> None:
             "symbol": item["symbol"],
             "direction": direction,
             "confidence": float(item["confidence"]),
-            "actual_return_pct": actual_return,
+            "actual_return": actual_return,
             "direction_correct": correct,
         })
     _print_json({"ok": True, "recorded": len(outcome["assets"]), "ledger": str(args.ledger)})

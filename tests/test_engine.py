@@ -14,22 +14,22 @@ def test_propose_respects_constraints(tmp_path: Path) -> None:
                 "risk_aversion": 3,
                 "max_gross_leverage": 4,
                 "max_asset_leverage": 3,
-                "max_one_day_loss_pct": 0.2,
+                "max_one_day_loss": 0.2,
             },
             "assets": [
                 {
                     "symbol": "SPX",
                     "direction": "long",
                     "confidence": 0.7,
-                    "typical_abs_move_pct": 2,
-                    "volatility_pct": 2,
+                    "typical_abs_move": 0.02,
+                    "volatility": 0.02,
                 },
                 {
                     "symbol": "USBOND30Y",
                     "direction": "short",
                     "confidence": 0.65,
-                    "typical_abs_move_pct": 1,
-                    "volatility_pct": 1,
+                    "typical_abs_move": 0.01,
+                    "volatility": 0.01,
                 },
             ],
         }
@@ -50,7 +50,7 @@ def test_ledger_calibration_changes_confidence(tmp_path: Path) -> None:
                 "symbol": "SPX",
                 "direction": "long",
                 "confidence": 0.6,
-                "actual_return_pct": -1.0,
+                "actual_return": -0.01,
                 "direction_correct": False,
             }
         )
@@ -63,13 +63,13 @@ def test_ledger_calibration_changes_confidence(tmp_path: Path) -> None:
                     "symbol": "SPX",
                     "direction": "long",
                     "confidence": 0.6,
-                    "typical_abs_move_pct": 2,
-                    "volatility_pct": 2,
+                    "typical_abs_move": 0.02,
+                    "volatility": 0.02,
                 }
             ],
         }
     )
     result = propose(view, ledger)
     calibration = result["bets"][0]["calibration"]
-    assert calibration["method"] == "prior_shrinkage_plus_empirical_bucket"
+    assert calibration["method"] == "ten_trade_bayesian_update"
     assert calibration["calibrated_confidence"] < calibration["raw_confidence"]

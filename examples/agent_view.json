@@ -6,24 +6,26 @@
     "risk_aversion": 3.0,
     "max_gross_leverage": 8.0,
     "max_asset_leverage": 5.0,
-    "max_one_day_loss_pct": 0.25,
-    "confidence_shrinkage": 0.25
+    "max_one_day_loss": 0.25,
+    "confidence_shrinkage": 0.25,
+    "calibration_horizon_trades": 10,
+    "kelly_fraction": null
   },
   "assets": [
     {
       "symbol": "SPX",
       "direction": "short",
       "confidence": 0.62,
-      "typical_abs_move_pct": 1.8,
-      "volatility_pct": 2.2,
+      "typical_abs_move": 0.018,
+      "volatility": 0.022,
       "rationale": "Credit stress and recession news are likely negative for equities."
     },
     {
       "symbol": "USBOND30Y",
       "direction": "long",
       "confidence": 0.58,
-      "typical_abs_move_pct": 1.0,
-      "volatility_pct": 1.2,
+      "typical_abs_move": 0.01,
+      "volatility": 0.012,
       "rationale": "Risk-off news is likely positive for long-duration Treasuries."
     }
   ]

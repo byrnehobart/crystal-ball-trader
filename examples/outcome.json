@@ -5,13 +5,13 @@
       "symbol": "SPX",
       "direction": "short",
       "confidence": 0.62,
-      "actual_return_pct": -1.4
+      "actual_return": -0.014
     },
     {
       "symbol": "USBOND30Y",
       "direction": "long",
       "confidence": 0.58,
-      "actual_return_pct": 0.6
+      "actual_return": 0.006
     }
   ]
 }

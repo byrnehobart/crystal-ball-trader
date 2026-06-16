@@ -11,6 +11,10 @@ The intended workflow is:
 
 The LLM is responsible for perception and judgment. This repo is responsible for memory, arithmetic, constraints, and bet sizing.
 
+## Decimal Convention
+
+All probabilities, returns, volatility estimates, and loss limits are expressed as decimals. For example, eight percent is `0.08`, not `8.0`.
+
 ## Install
 
 ```bash
@@ -53,16 +57,18 @@ Each `assets` entry asks the LLM for a directional view and confidence. The dete
     "risk_aversion": 3.0,
     "max_gross_leverage": 8.0,
     "max_asset_leverage": 5.0,
-    "max_one_day_loss_pct": 0.25,
-    "confidence_shrinkage": 0.25
+    "max_one_day_loss": 0.25,
+    "confidence_shrinkage": 0.25,
+    "calibration_horizon_trades": 10,
+    "kelly_fraction": null
   },
   "assets": [
     {
       "symbol": "SPX",
       "direction": "short",
       "confidence": 0.62,
-      "typical_abs_move_pct": 1.8,
-      "volatility_pct": 2.2,
+      "typical_abs_move": 0.018,
+      "volatility": 0.022,
       "rationale": "Equity-negative macro and credit news."
     }
   ]
@@ -71,7 +77,7 @@ Each `assets` entry asks the LLM for a directional view and confidence. The dete
 
 `confidence` is the estimated probability that the direction is correct, from `0.50` to `1.00`.
 
-`typical_abs_move_pct` is the LLM's estimate of the absolute one-day move conditional on this sort of news. If the agent is unsure, it should use conservative values and say so in the reasoning summary.
+`typical_abs_move` is the LLM's decimal estimate of the absolute one-day move conditional on this sort of news. If the agent is unsure, it should use conservative values and say so in the reasoning summary.
 
 ## Recording Outcomes
 
@@ -87,23 +93,27 @@ Outcomes are appended to `.crystal-ball/ledger.jsonl`. Future proposals use this
 
 For each asset, the engine:
 
-1. Shrinks raw LLM confidence toward 50%.
+1. Shrinks raw LLM confidence toward `0.50`.
 2. Adjusts confidence using prior outcomes in the same confidence bucket when available.
+   The update is Bayesian and horizon-aware: `calibration_horizon_trades` acts like the number of prior pseudo-observations. With the default value of `10`, ten comparable realized trades get about as much weight as the initial LLM estimate.
 3. Converts confidence and typical move into expected return:
 
 ```text
 expected_return = direction * (2 * calibrated_confidence - 1) * typical_abs_move
 ```
 
-4. Applies a Merton-style leverage rule:
+4. Computes the full Kelly leverage:
 
 ```text
-leverage = expected_return / (risk_aversion * volatility^2)
+full_kelly_leverage = expected_return / volatility^2
 ```
 
-5. Applies asset, gross leverage, and stressed one-day loss constraints.
+5. Applies a Kelly fraction. If `kelly_fraction` is `null`, the engine uses `1 / risk_aversion`, so the default risk profile with risk aversion `3.0` is one-third Kelly.
+6. Applies asset, gross leverage, and stressed one-day loss constraints.
 
 This is intentionally deterministic and inspectable. The LLM can argue about direction, confidence, and the appropriate inputs, but it does not get to improvise the final bet size.
+
+The objective is expected compound growth over a short sequence of trades, not raw expected dollars. Raw expected-dollar maximization would often push directly to the leverage cap whenever the estimated edge is positive. Kelly-style sizing instead balances edge against variance, which is the behavior we want over a ten-trade Crystal Ball session.
 
 ## Files
 

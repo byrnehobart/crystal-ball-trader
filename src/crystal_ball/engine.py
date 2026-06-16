@@ -45,16 +45,20 @@ def calibrated_confidence(asset: AssetView, view: AgentView, ledger: Ledger) -> 
             "calibrated_confidence": shrunk,
             "method": "prior_shrinkage",
             "history_count": 0,
+            "calibration_horizon_trades": profile.calibration_horizon_trades,
         }
 
-    history_weight = min(0.75, bucket.count / 20.0)
+    prior_strength = max(1.0, profile.calibration_horizon_trades)
+    history_weight = bucket.count / (prior_strength + bucket.count)
     calibrated = (1.0 - history_weight) * shrunk + history_weight * bucket.hit_rate
     return calibrated, {
         "raw_confidence": raw,
         "calibrated_confidence": calibrated,
-        "method": "prior_shrinkage_plus_empirical_bucket",
+        "method": "ten_trade_bayesian_update",
         "history_count": bucket.count,
         "bucket_hit_rate": bucket.hit_rate,
+        "history_weight": history_weight,
+        "calibration_horizon_trades": profile.calibration_horizon_trades,
     }
 
 
@@ -66,8 +70,8 @@ def size_asset(asset: AssetView, view: AgentView, ledger: Ledger) -> dict[str, A
             "direction": asset.direction,
             "leverage": 0.0,
             "notional": 0.0,
-            "expected_return_pct": 0.0,
-            "volatility_pct": asset.volatility_pct or asset.typical_abs_move_pct,
+            "expected_return": 0.0,
+            "volatility": asset.volatility or asset.typical_abs_move,
             "calibration": {
                 "raw_confidence": asset.confidence,
                 "calibrated_confidence": asset.confidence,
@@ -77,12 +81,18 @@ def size_asset(asset: AssetView, view: AgentView, ledger: Ledger) -> dict[str, A
         }
 
     confidence, calibration = calibrated_confidence(asset, view, ledger)
-    typical_move = asset.typical_abs_move_pct / 100.0
-    volatility = (asset.volatility_pct or asset.typical_abs_move_pct) / 100.0
+    typical_move = asset.typical_abs_move
+    volatility = asset.volatility or asset.typical_abs_move
     edge = sign * (2.0 * confidence - 1.0) * typical_move
 
     variance = max(volatility * volatility, 1e-8)
-    raw_leverage = edge / (view.risk_profile.risk_aversion * variance)
+    full_kelly_leverage = edge / variance
+    kelly_fraction = (
+        view.risk_profile.kelly_fraction
+        if view.risk_profile.kelly_fraction is not None
+        else 1.0 / view.risk_profile.risk_aversion
+    )
+    raw_leverage = full_kelly_leverage * kelly_fraction
     asset_cap = min(
         view.risk_profile.max_asset_leverage,
         asset.max_leverage if asset.max_leverage is not None else view.risk_profile.max_asset_leverage,
@@ -94,10 +104,12 @@ def size_asset(asset: AssetView, view: AgentView, ledger: Ledger) -> dict[str, A
         "direction": "long" if leverage > 0 else "short" if leverage < 0 else "flat",
         "leverage": leverage,
         "notional": leverage * view.bankroll,
-        "expected_return_pct": edge * 100.0,
-        "volatility_pct": volatility * 100.0,
+        "expected_return": edge,
+        "volatility": volatility,
         "calibration": calibration,
-        "raw_merton_leverage": raw_leverage,
+        "full_kelly_leverage": full_kelly_leverage,
+        "kelly_fraction": kelly_fraction,
+        "raw_fractional_kelly_leverage": raw_leverage,
     }
 
 
@@ -109,11 +121,11 @@ def apply_portfolio_constraints(rows: list[dict[str, Any]], view: AgentView) -> 
 
     loss_scale = 1.0
     stressed_loss = sum(
-        max(0.0, abs(row["leverage"]) * (row["volatility_pct"] / 100.0) * 3.0)
+        max(0.0, abs(row["leverage"]) * row["volatility"] * 3.0)
         for row in rows
     )
-    if stressed_loss > view.risk_profile.max_one_day_loss_pct:
-        loss_scale = view.risk_profile.max_one_day_loss_pct / stressed_loss
+    if stressed_loss > view.risk_profile.max_one_day_loss:
+        loss_scale = view.risk_profile.max_one_day_loss / stressed_loss
 
     scale = min(gross_scale, loss_scale)
     constrained = []
@@ -126,7 +138,7 @@ def apply_portfolio_constraints(rows: list[dict[str, Any]], view: AgentView) -> 
     return constrained, {
         "gross_leverage_before_constraints": gross,
         "gross_leverage_after_constraints": sum(abs(row["leverage"]) for row in constrained),
-        "stress_loss_pct_before_constraints": stressed_loss * 100.0,
+        "stress_loss_before_constraints": stressed_loss,
         "constraint_scale": scale,
         "gross_scale": gross_scale,
         "loss_scale": loss_scale,
@@ -137,10 +149,10 @@ def propose(view: AgentView, ledger: Ledger) -> dict[str, Any]:
     rows = [size_asset(asset, view, ledger) for asset in view.assets]
     rows, constraints = apply_portfolio_constraints(rows, view)
     expected_daily_return = sum(
-        row["leverage"] * row["expected_return_pct"] / 100.0 for row in rows
+        row["leverage"] * row["expected_return"] for row in rows
     )
     variance = sum(
-        (row["leverage"] * row["volatility_pct"] / 100.0) ** 2 for row in rows
+        (row["leverage"] * row["volatility"]) ** 2 for row in rows
     )
     return {
         "question_id": view.question_id,
@@ -148,8 +160,8 @@ def propose(view: AgentView, ledger: Ledger) -> dict[str, Any]:
         "risk_profile": asdict(view.risk_profile),
         "bets": rows,
         "portfolio": {
-            "expected_daily_return_pct": expected_daily_return * 100.0,
-            "volatility_pct_independent_assets": math.sqrt(variance) * 100.0,
+            "expected_daily_return": expected_daily_return,
+            "volatility_independent_assets": math.sqrt(variance),
             **constraints,
         },
         "agent_reasoning_summary": view.agent_reasoning_summary,

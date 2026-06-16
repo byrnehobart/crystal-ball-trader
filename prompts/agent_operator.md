@@ -15,10 +15,12 @@ For each front page:
 5. For each asset, provide:
    - `direction`: `long`, `short`, or `flat`.
    - `confidence`: probability from `0.50` to `1.00` that the direction is correct.
-   - `typical_abs_move_pct`: your estimate of the absolute one-day move for this kind of news.
-   - `volatility_pct`: a conservative one-day volatility estimate.
+   - `typical_abs_move`: your decimal estimate of the absolute one-day move for this kind of news.
+   - `volatility`: a conservative decimal one-day volatility estimate.
    - `rationale`: one concise sentence.
 6. Run `crystal-ball propose <your-json-file>`.
 7. Report the resulting bets and include the deterministic engine output.
 
 Important: separate judgment from sizing. Do not hand-size bets yourself. Your job is to provide directional views and calibrated inputs; the package computes the risk-adjusted bet.
+
+The sizing engine is designed to move toward Kelly-optimal betting over a ten-trade session. It treats `calibration_horizon_trades` as the pace of learning from prior outcomes and uses the resulting calibrated confidence to compute a fractional Kelly bet.
