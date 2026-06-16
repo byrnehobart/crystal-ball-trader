@@ -1,0 +1,17 @@
+{
+  "question_id": "example-front-page-001",
+  "assets": [
+    {
+      "symbol": "SPX",
+      "direction": "short",
+      "confidence": 0.62,
+      "actual_return_pct": -1.4
+    },
+    {
+      "symbol": "USBOND30Y",
+      "direction": "long",
+      "confidence": 0.58,
+      "actual_return_pct": 0.6
+    }
+  ]
+}

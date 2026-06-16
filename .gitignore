@@ -1,0 +1,6 @@
+.crystal-ball/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+tmp/
